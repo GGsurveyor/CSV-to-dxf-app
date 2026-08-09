@@ -1,4 +1,5 @@
-import io
+import os
+import tempfile
 import pandas as pd
 import streamlit as st
 import ezdxf
@@ -35,7 +36,7 @@ if uploaded_file is not None:
     # Read the CSV file
     df = pd.read_csv(uploaded_file)
 
-    st.success("File uploaded successfully!")
+    st.success("File上传成功！")
     st.write("### Data Preview:", df.head())
 
     st.write("### Match Your Table Columns")
@@ -99,7 +100,7 @@ if uploaded_file is not None:
 
     # Generation button
     if st.button("🚀 Generate DXF File"):
-      # 💡 使用兼容性最强的 R12 版本，彻底杜绝 AutoCAD 任何版本报错的可能性
+      # 使用最高兼容性的 R12 版本
       doc = ezdxf.new(dxfversion="R12")
       msp = doc.modelspace()
 
@@ -108,27 +109,28 @@ if uploaded_file is not None:
 
       for _, row in df.iterrows():
         try:
-          # 严格清洗并转换坐标数字
+          # 1. 强力清洗坐标：过滤非数字字符
           x_val = float(str(row[x_col]).replace(",", "").strip())
           y_val = float(str(row[y_col]).replace(",", "").strip())
           z_val = float(str(row[z_col]).replace(",", "").strip())
 
-          # 清洗 ID 字符串防止非法字符
+          # 2. 强力清洗 ID：移除非法控制字符、双引号、换行，防止破坏 DXF 行结构
           if id_col in row and pd.notna(row[id_col]):
             id_val = (
                 str(row[id_col])
-                .replace("\n", "")
-                .replace("\r", "")
+                .replace("\n", " ")
+                .replace("\r", " ")
                 .replace('"', "")
+                .replace("\\", "/")
                 .strip()
             )
           else:
             id_val = f"Pt_{point_count+1}"
 
-          # 在 CAD 中添加 3D 点
+          # 3. 添加 3D 点
           msp.add_point((x_val, y_val, z_val))
 
-          # 确认文字标注内容
+          # 4. 确定文字内容
           text_to_show = ""
           if label_display_mode == "Show ID Only":
             text_to_show = id_val
@@ -143,7 +145,7 @@ if uploaded_file is not None:
           elif label_display_mode == "No Text (Draw Points Only)":
             text_to_show = ""
 
-          # 在点旁边添加文字标注
+          # 5. 添加文字标签
           if text_to_show:
             msp.add_text(
                 text_to_show,
@@ -158,10 +160,16 @@ if uploaded_file is not None:
           skipped_count += 1
           continue
 
-      # 💡 使用官方最标准的 StringIO 内存写入，绝对不会报错并完美支持中文和特殊符号
-      stream = io.StringIO()
-      doc.write(stream)
-      dxf_bytes = stream.getvalue().encode("utf-8")
+      # 💡 核心大招：利用系统的安全临时文件保存，彻底阻断由于浏览器传输引起的文本流损坏
+      with tempfile.NamedTemporaryFile(delete=False, suffix=".dxf") as tmp_file:
+        tmp_filename = tmp_file.name
+
+      doc.saveas(tmp_filename)
+
+      with open(tmp_filename, "rb") as f:
+        dxf_bytes = f.read()
+
+      os.unlink(tmp_filename)
 
       st.success(
           f"🎉 Successfully converted {point_count} points! (Skipped"
