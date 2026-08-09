@@ -1,4 +1,5 @@
-import io
+import os
+import tempfile
 import pandas as pd
 import streamlit as st
 import ezdxf
@@ -151,10 +152,17 @@ if uploaded_file is not None:
         except ValueError:
           continue  # Skip rows with invalid data format
 
-      # 💡 完美解决二进制流报错的标准写法
-      dxf_stream = io.BytesIO()
-      doc.write(dxf_stream, fmt="asc")  # 强制输出为标准 ASCII DXF 二进制流
-      dxf_bytes = dxf_stream.getvalue()
+      # 💡 完美解决方案：利用系统临时文件生成 DXF，再以二进制读取，彻底规避内存流类型报错
+      with tempfile.NamedTemporaryFile(delete=False, suffix=".dxf") as tmp_file:
+        tmp_filename = tmp_file.name
+
+      doc.saveas(tmp_filename)
+
+      with open(tmp_filename, "rb") as f:
+        dxf_bytes = f.read()
+
+      # 删除临时文件保持干净
+      os.unlink(tmp_filename)
 
       st.success(
           f"🎉 Successfully converted {point_count} 3D points and labels!"
