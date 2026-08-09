@@ -137,30 +137,31 @@ if uploaded_file is not None:
           # 3. 添加 3D 点
           msp.add_point((x_val, y_val, z_val))
 
-          # 4. 确定文字内容（高程前已加上 EL: 前缀）
+          # 4. 确定文字内容
+          # 💡 在 AutoCAD MTEXT 中，使用 \P 代表强制换行（实现上下垂直排列）
           text_to_show = ""
           if label_display_mode == "Show ID Only":
             text_to_show = id_val
           elif label_display_mode == "Show ID + X, Y, Z":
-            text_to_show = f"{id_val} (X:{x_val}, Y:{y_val}, Z:{z_val})"
+            text_to_show = f"{id_val}\\PX: {x_val}\\PY: {y_val}\\PEL: {z_val}"
           elif label_display_mode == "Show ID & Elevation / Height":
-            text_to_show = f"{id_val} (EL:{z_val})"  # 👈 改为 EL:
+            text_to_show = f"{id_val}\\PEL: {z_val}"
           elif label_display_mode == "Show X Coordinate Only":
-            text_to_show = str(x_val)
+            text_to_show = f"X: {x_val}"
           elif label_display_mode == "Show Y Coordinate Only":
-            text_to_show = str(y_val)
+            text_to_show = f"Y: {y_val}"
           elif label_display_mode == "Show Elevation / Height Only":
-            text_to_show = f"EL:{z_val}"  # 👈 改为 EL:
+            text_to_show = f"EL: {z_val}"
           elif label_display_mode == "No Text (Draw Points Only)":
             text_to_show = ""
 
-          # 5. 添加文字标签
+          # 5. 使用 add_mtext（多行文本），完美支持 \P 实现由上到下垂直堆叠
           if text_to_show:
-            msp.add_text(
+            msp.add_mtext(
                 text_to_show,
                 dxfattribs={
                     "insert": (x_val + offset_x, y_val + offset_y, z_val),
-                    "height": text_height,
+                    "char_height": text_height,
                 },
             )
 
