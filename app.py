@@ -93,8 +93,10 @@ if uploaded_file is not None:
         ],
     )
 
-    # Advanced text settings
-    with st.expander("⚙️ Advanced Settings (Font Size, Offsets & Decimals)"):
+    # Advanced settings (新增：点种类与大小设置)
+    with st.expander(
+        "⚙️ Advanced Settings (Point Style, Size, Font & Offsets)"
+    ):
       text_height = st.number_input("Text Height", value=1.0, step=0.1)
       offset_x = st.number_input("Text X Offset", value=0.5, step=0.1)
       offset_y = st.number_input("Text Y Offset", value=0.5, step=0.1)
@@ -102,10 +104,45 @@ if uploaded_file is not None:
           "Decimal Places for Coordinates / EL", [3, 4], index=0
       )
 
+      st.markdown("---")
+      st.write("📍 **CAD Point Style Settings**")
+
+      # 点样式映射字典（对应 AutoCAD 的 PDMODE 系统变量值）
+      point_style_options = {
+          "Default Dot (.)": 0,
+          "None (No Point Symbol)": 1,
+          "Plus (+)": 2,
+          "X Shape (X)": 3,
+          "Vertical Tick (|)": 4,
+          "Circle (○)": 32,
+          "Square (□)": 64,
+          "Circle & Cross (◎)": 34,
+      }
+
+      selected_style_name = st.selectbox(
+          "Point Symbol Type", list(point_style_options.keys()), index=2
+      )
+      pdmode_val = point_style_options[selected_style_name]
+
+      # PDSIZE 控制点的大小（正数表示绝对大小，负数表示屏幕百分比）
+      pdsize_val = st.number_input(
+          "Point Size (PDSIZE)",
+          value=1.5,
+          step=0.2,
+          help=(
+              "Set point display size. Positive values are absolute units in"
+              " drawing."
+          ),
+      )
+
     # Generation button
     if st.button("🚀 Generate DXF File"):
       doc = ezdxf.new(dxfversion="R2010")
       msp = doc.modelspace()
+
+      # 设置 AutoCAD 全局点样式变量 (PDMODE 和 PDSIZE)
+      doc.header["$PDMODE"] = pdmode_val
+      doc.header["$PDSIZE"] = pdsize_val
 
       point_count = 0
       skipped_count = 0
@@ -122,8 +159,8 @@ if uploaded_file is not None:
           y_val = float(y_str)
           z_val = float(z_str)
 
-          # 2. 原始数值格式化
-          format_str = f"{{:.{decimal_places}f}}"
+          # 2. 格式化数值（固定宽度确保小数点对齐）
+          format_str = f"{{:>10.{decimal_places}f}}"
           x_formatted = format_str.format(x_val)
           y_formatted = format_str.format(y_val)
           z_formatted = format_str.format(z_val)
@@ -146,13 +183,11 @@ if uploaded_file is not None:
           # 4. 添加 3D 点
           msp.add_point((x_val, y_val, z_val))
 
-          # 5. 组装 MTEXT 内容：
-          # 💡 核心改进：使用 AutoCAD 的强制对齐制表符格式 (\\t) 或右对齐段落格式
+          # 5. 组装 MTEXT 内容（使用 `\~` 保持小数点垂直对齐）
           text_to_show = ""
           if label_display_mode == "Show ID Only":
             text_to_show = id_val
           elif label_display_mode == "Show ID + X, Y, Z":
-            # 采用 MTEXT 内置的齐头对齐语法：标签固定左侧，数值独立靠右对齐
             text_to_show = (
                 f"{id_val}\\PX:\\~\\~{x_formatted}\\PY:\\~\\~{y_formatted}\\PEL:\\~{z_formatted}"
             )
