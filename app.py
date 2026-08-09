@@ -100,31 +100,41 @@ if uploaded_file is not None:
 
     # Generation button
     if st.button("🚀 Generate DXF File"):
-      # Create DXF document
+      # Create DXF document (R2000 format)
       doc = ezdxf.new(dxfversion="R2000")
       msp = doc.modelspace()
 
       point_count = 0
+      skipped_count = 0
+
       for _, row in df.iterrows():
         try:
-          x_val = float(row[x_col])
-          y_val = float(row[y_col])
-          z_val = float(row[z_col])
-          id_val = str(row[id_col]) if id_col in row else ""
+          # 1. Strict coordinate parsing (convert to float, remove commas/spaces if any)
+          x_val = float(str(row[x_col]).replace(",", "").strip())
+          y_val = float(str(row[y_col]).replace(",", "").strip())
+          z_val = float(str(row[z_col]).replace(",", "").strip())
 
-          # 1. Add 3D point in CAD
+          # 2. Clean ID string (remove dangerous characters for CAD)
+          if id_col in row and pd.notna(row[id_col]):
+            id_val = (
+                str(row[id_col])
+                .replace("\n", "")
+                .replace("\r", "")
+                .replace('"', "")
+                .strip()
+            )
+          else:
+            id_val = f"Pt_{point_count+1}"
+
+          # 3. Add 3D point in CAD
           msp.add_point((x_val, y_val, z_val))
 
-          # 2. Determine text content based on user choice
+          # 4. Determine text content based on user choice
           text_to_show = ""
           if label_display_mode == "Show ID Only":
             text_to_show = id_val
           elif label_display_mode == "Show ID + X, Y, Z":
-            text_to_show = (
-                f"{id_val} (X:{x_val}, Y:{y_val}, Z:{z_val})"
-                if id_val
-                else f"X:{x_val}, Y:{y_val}, Z:{z_val}"
-            )
+            text_to_show = f"{id_val} (X:{x_val}, Y:{y_val}, Z:{z_val})"
           elif label_display_mode == "Show X Coordinate Only":
             text_to_show = str(x_val)
           elif label_display_mode == "Show Y Coordinate Only":
@@ -134,25 +144,22 @@ if uploaded_file is not None:
           elif label_display_mode == "No Text (Draw Points Only)":
             text_to_show = ""
 
-          # 3. Add text label next to the point
+          # 5. Add text label next to the point (safeguard against empty strings)
           if text_to_show:
             msp.add_text(
                 text_to_show,
                 dxfattribs={
-                    "insert": (
-                        x_val + offset_x,
-                        y_val + offset_y,
-                        z_val,
-                    ),  # Text includes Z height
+                    "insert": (x_val + offset_x, y_val + offset_y, z_val),
                     "height": text_height,
                 },
             )
 
           point_count += 1
-        except ValueError:
-          continue  # Skip rows with invalid data format
+        except Exception:
+          skipped_count += 1
+          continue  # Skip invalid rows safely
 
-      # 💡 完美解决方案：利用系统临时文件生成 DXF，再以二进制读取，彻底规避内存流类型报错
+      # Save to a temporary file
       with tempfile.NamedTemporaryFile(delete=False, suffix=".dxf") as tmp_file:
         tmp_filename = tmp_file.name
 
@@ -161,11 +168,11 @@ if uploaded_file is not None:
       with open(tmp_filename, "rb") as f:
         dxf_bytes = f.read()
 
-      # 删除临时文件保持干净
       os.unlink(tmp_filename)
 
       st.success(
-          f"🎉 Successfully converted {point_count} 3D points and labels!"
+          f"🎉 Successfully converted {point_count} points! (Skipped"
+          f" {skipped_count} invalid rows)"
       )
 
       # Download button
