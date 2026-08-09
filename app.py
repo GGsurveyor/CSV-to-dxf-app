@@ -77,7 +77,7 @@ if uploaded_file is not None:
           index=get_default_index(["id", "name", "point", "label"], columns),
       )
 
-    # CAD label display options
+    # CAD label display options (including Elevation / Height option)
     st.write("### ⚙️ CAD Text Label Options")
     label_display_mode = st.radio(
         "Choose what to display next to the point:",
@@ -86,6 +86,7 @@ if uploaded_file is not None:
             "Show ID + X, Y, Z",
             "Show X Coordinate Only",
             "Show Y Coordinate Only",
+            "Show Elevation / Height Only",
             "No Text (Draw Points Only)",
         ],
     )
@@ -127,6 +128,8 @@ if uploaded_file is not None:
             text_to_show = str(x_val)
           elif label_display_mode == "Show Y Coordinate Only":
             text_to_show = str(y_val)
+          elif label_display_mode == "Show Elevation / Height Only":
+            text_to_show = str(z_val)
           elif label_display_mode == "No Text (Draw Points Only)":
             text_to_show = ""
 
