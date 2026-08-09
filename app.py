@@ -100,8 +100,8 @@ if uploaded_file is not None:
 
     # Generation button
     if st.button("🚀 Generate DXF File"):
-      # 使用最高兼容性的 R12 版本
-      doc = ezdxf.new(dxfversion="R12")
+      # 💡 改用 R2010 现代工业级标准，对复杂多点、大批量数据和特殊文本兼容性极强
+      doc = ezdxf.new(dxfversion="R2010")
       msp = doc.modelspace()
 
       point_count = 0
@@ -109,22 +109,22 @@ if uploaded_file is not None:
 
       for _, row in df.iterrows():
         try:
-          # 1. 严格清洗坐标：转浮点数，去掉所有空格、逗号
+          # 1. 强力清洗坐标：过滤非数字
           x_val = float(str(row[x_col]).replace(",", "").strip())
           y_val = float(str(row[y_col]).replace(",", "").strip())
           z_val = float(str(row[z_col]).replace(",", "").strip())
 
-          # 2. 强力清洗 ID：把所有可能引起 CAD 语法崩溃的特殊控制字符安全替换掉
+          # 2. 极致安全清洗 ID：把所有换行、制表符、非法符号变成安全单行文本
           if id_col in row and pd.notna(row[id_col]):
             id_raw = str(row[id_col])
-            # 过滤掉换行符、制表符、双引号、反斜杠等危险字符
-            id_val = "".join(
-                c
-                for c in id_raw
-                if c.isalnum()
-                or c in "._-+ /()[]#@:，、（）"
-                or ord(c) > 127
-            ).strip()
+            # 将任何潜在的回车、换行、Tab直接替换为空格，彻底杜绝 DXF 结构断行
+            id_val = (
+                id_raw.replace("\r", " ")
+                .replace("\n", " ")
+                .replace("\t", " ")
+                .replace('"', "")
+                .strip()
+            )
             if not id_val:
               id_val = f"Pt_{point_count+1}"
           else:
@@ -148,7 +148,7 @@ if uploaded_file is not None:
           elif label_display_mode == "No Text (Draw Points Only)":
             text_to_show = ""
 
-          # 5. 添加文字标签（如果文本过长或包含非法格式则做安全保护）
+          # 5. 添加文字标签（如果文本不为空）
           if text_to_show:
             msp.add_text(
                 text_to_show,
@@ -163,12 +163,12 @@ if uploaded_file is not None:
           skipped_count += 1
           continue
 
-      # 💡 核心大招：在保存前对整个 DXF 图纸进行审计与自动修复（Audit & Fix），扫除任何潜在结构硬伤
+      # 自动审计并修复任何微小结构问题
       auditor = doc.audit()
       if len(auditor.errors) > 0:
         auditor.fix_errors()
 
-      # 利用临时文件以绝对二进制安全的方式保存
+      # 使用临时文件安全保存
       with tempfile.NamedTemporaryFile(delete=False, suffix=".dxf") as tmp_file:
         tmp_filename = tmp_file.name
 
