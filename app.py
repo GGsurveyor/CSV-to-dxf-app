@@ -5,24 +5,25 @@ import ezdxf
 
 # Page configuration
 st.set_page_config(
-    page_title="CSV to DXF 3D Converter", page_icon="📐", layout="centered"
+    page_title="CSV to DXF Converter", page_icon="📐", layout="centered"
 )
 
-st.title("📐 CSV to DXF Converter (X, Y, Z & ID)")
+st.title("📐 CSV to DXF 3D Coordinate Converter")
 st.markdown(
-    "Upload a CSV file containing 3D coordinate data (**ID, X, Y, Z**) to convert it into a 3D CAD-ready DXF file."
+    "Upload a CSV file containing **ID, X, Y, and Z** data to instantly convert"
+    " it into a CAD-ready DXF file."
 )
 
-# Instructions / Expected Format
-with st.expander("ℹ️ Expected CSV Format & Instructions"):
+# Sample format expander
+with st.expander("ℹ️ Click here to view the expected CSV format"):
   st.markdown("""
-        Your CSV file must include columns representing coordinates and an identifier. 
+        Your CSV file must include these columns (headers can have any names as you can match them manually later):
         
-        **Example CSV structure:**
+        **Example CSV Structure:**
         ```csv
         ID,X,Y,Z
-        Point1,100.5,200.0,15.2
-        Point2,150.0,250.5,18.4
+        P1,500.25,1000.50,15.20
+        P2,501.10,1002.30,15.85
         ```
     """)
 
@@ -34,12 +35,12 @@ if uploaded_file is not None:
     # Read the CSV file
     df = pd.read_csv(uploaded_file)
 
-    st.success("CSV file successfully uploaded!")
+    st.success("File uploaded successfully!")
     st.write("### Data Preview:", df.head())
 
-    # Column mappings
-    st.write("### Map Your Columns")
+    st.write("### Match Your Table Columns")
     columns = list(df.columns)
+
 
     # Helper function to auto-guess column indices
     def get_default_index(keywords, cols):
@@ -49,45 +50,55 @@ if uploaded_file is not None:
             return idx
       return 0
 
+
+    # Two-column layout
     col1, col2 = st.columns(2)
     with col1:
       x_col = st.selectbox(
-          "Select X (Easting / Longitude) Column",
+          "Select X Coordinate (Easting / Longitude)",
           columns,
           index=get_default_index(["x"], columns),
       )
       z_col = st.selectbox(
-          "Select Z (Elevation / Height) Column",
+          "Select Z Coordinate (Elevation / Height)",
           columns,
           index=get_default_index(["z", "elev", "height"], columns),
       )
 
     with col2:
       y_col = st.selectbox(
-          "Select Y (Northing / Latitude) Column",
+          "Select Y Coordinate (Northing / Latitude)",
           columns,
           index=get_default_index(["y"], columns),
       )
       id_col = st.selectbox(
-          "Select ID / Name Column",
+          "Select ID (Point Name / Number)",
           columns,
           index=get_default_index(["id", "name", "point", "label"], columns),
       )
 
-    # Optional configuration for text formatting
-    with st.expander("⚙️ Advanced Settings (Text Label Options)"):
-      text_height = st.number_input(
-          "Text Height for ID", min_value=0.1, max_value=100.0, value=1.0
-      )
-      offset_x = st.number_input(
-          "Label Offset X", min_value=-10.0, max_value=10.0, value=0.5
-      )
-      offset_y = st.number_input(
-          "Label Offset Y", min_value=-10.0, max_value=10.0, value=0.5
-      )
+    # CAD label display options
+    st.write("### ⚙️ CAD Text Label Options")
+    label_display_mode = st.radio(
+        "Choose what to display next to the point:",
+        [
+            "Show ID Only",
+            "Show ID + X, Y, Z",
+            "Show X Coordinate Only",
+            "Show Y Coordinate Only",
+            "No Text (Draw Points Only)",
+        ],
+    )
 
-    if st.button("Generate DXF File"):
-      # Create DXF document using ezdxf (R2000 supports 3D coordinates)
+    # Advanced text settings
+    with st.expander("⚙️ Advanced Settings (Font Size & Offsets)"):
+      text_height = st.number_input("Text Height", value=1.0, step=0.1)
+      offset_x = st.number_input("Text X Offset", value=0.5, step=0.1)
+      offset_y = st.number_input("Text Y Offset", value=0.5, step=0.1)
+
+    # Generation button
+    if st.button("🚀 Generate DXF File"):
+      # Create DXF document
       doc = ezdxf.new(dxfversion="R2000")
       msp = doc.modelspace()
 
@@ -99,38 +110,58 @@ if uploaded_file is not None:
           z_val = float(row[z_col])
           id_val = str(row[id_col]) if id_col in row else ""
 
-          # Add 3D Point entity
+          # 1. Add 3D point in CAD
           msp.add_point((x_val, y_val, z_val))
 
-          # Add Text label (ID) near the point
-          if id_val:
+          # 2. Determine text content based on user choice
+          text_to_show = ""
+          if label_display_mode == "Show ID Only":
+            text_to_show = id_val
+          elif label_display_mode == "Show ID + X, Y, Z":
+            text_to_show = (
+                f"{id_val} (X:{x_val}, Y:{y_val}, Z:{z_val})"
+                if id_val
+                else f"X:{x_val}, Y:{y_val}, Z:{z_val}"
+            )
+          elif label_display_mode == "Show X Coordinate Only":
+            text_to_show = str(x_val)
+          elif label_display_mode == "Show Y Coordinate Only":
+            text_to_show = str(y_val)
+          elif label_display_mode == "No Text (Draw Points Only)":
+            text_to_show = ""
+
+          # 3. Add text label next to the point
+          if text_to_show:
             msp.add_text(
-                id_val,
+                text_to_show,
                 dxfattribs={
-                    "insert": (x_val + offset_x, y_val + offset_y, z_val),
+                    "insert": (
+                        x_val + offset_x,
+                        y_val + offset_y,
+                        z_val,
+                    ),  # Text includes Z height
                     "height": text_height,
                 },
             )
 
           point_count += 1
         except ValueError:
-          continue  # Skip rows with invalid numeric coordinates
+          continue  # Skip rows with invalid data format
 
-      # Save DXF to an in-memory buffer
+      # Save to byte buffer
       dxf_buffer = io.StringIO()
       doc.write(dxf_buffer)
       dxf_bytes = dxf_buffer.getvalue().encode("utf-8")
 
       st.success(
-          f"Successfully converted {point_count} 3D points with IDs into DXF"
-          " format!"
+          f"🎉 Successfully converted {point_count} 3D points and labels!"
       )
 
       # Download button
       st.download_button(
-          label="⬇️ Download 3D DXF File",
+          label="⬇️ Click to Download DXF File",
           data=dxf_bytes,
-          file_name="converted_3d_output.dxf",
+          file_name="converted_output.dxf",
           mime="application/dxf",
       )
 
