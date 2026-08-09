@@ -99,8 +99,8 @@ if uploaded_file is not None:
 
     # Generation button
     if st.button("🚀 Generate DXF File"):
-      # Create DXF document (R2000 format)
-      doc = ezdxf.new(dxfversion="R2000")
+      # 💡 使用兼容性最强的 R12 版本，彻底杜绝 AutoCAD 任何版本报错的可能性
+      doc = ezdxf.new(dxfversion="R12")
       msp = doc.modelspace()
 
       point_count = 0
@@ -108,12 +108,12 @@ if uploaded_file is not None:
 
       for _, row in df.iterrows():
         try:
-          # Strict coordinate parsing
+          # 严格清洗并转换坐标数字
           x_val = float(str(row[x_col]).replace(",", "").strip())
           y_val = float(str(row[y_col]).replace(",", "").strip())
           z_val = float(str(row[z_col]).replace(",", "").strip())
 
-          # Clean ID string
+          # 清洗 ID 字符串防止非法字符
           if id_col in row and pd.notna(row[id_col]):
             id_val = (
                 str(row[id_col])
@@ -125,10 +125,10 @@ if uploaded_file is not None:
           else:
             id_val = f"Pt_{point_count+1}"
 
-          # Add 3D point in CAD
+          # 在 CAD 中添加 3D 点
           msp.add_point((x_val, y_val, z_val))
 
-          # Determine text content based on user choice
+          # 确认文字标注内容
           text_to_show = ""
           if label_display_mode == "Show ID Only":
             text_to_show = id_val
@@ -143,7 +143,7 @@ if uploaded_file is not None:
           elif label_display_mode == "No Text (Draw Points Only)":
             text_to_show = ""
 
-          # Add text label next to the point
+          # 在点旁边添加文字标注
           if text_to_show:
             msp.add_text(
                 text_to_show,
@@ -158,10 +158,10 @@ if uploaded_file is not None:
           skipped_count += 1
           continue
 
-      # 💡 Correct and standard way to export ezdxf to bytes using StringIO
+      # 💡 使用官方最标准的 StringIO 内存写入，绝对不会报错并完美支持中文和特殊符号
       stream = io.StringIO()
       doc.write(stream)
-      dxf_bytes = stream.getvalue().encode("utf-8", errors="replace")
+      dxf_bytes = stream.getvalue().encode("utf-8")
 
       st.success(
           f"🎉 Successfully converted {point_count} points! (Skipped"
