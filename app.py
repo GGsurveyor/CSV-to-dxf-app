@@ -77,7 +77,7 @@ if uploaded_file is not None:
           index=get_default_index(["id", "name", "point", "label"], columns),
       )
 
-    # CAD label display options (including Elevation / Height option)
+    # CAD label display options
     st.write("### ⚙️ CAD Text Label Options")
     label_display_mode = st.radio(
         "Choose what to display next to the point:",
@@ -151,10 +151,10 @@ if uploaded_file is not None:
         except ValueError:
           continue  # Skip rows with invalid data format
 
-      # Save to byte buffer
-      dxf_buffer = io.StringIO()
-      doc.write(dxf_buffer)
-      dxf_bytes = dxf_buffer.getvalue().encode("utf-8")
+      # 💡 关键修复：改用 BytesIO 二进制流保存 DXF 文件，完美兼容 AutoCAD
+      dxf_bytes_io = io.BytesIO()
+      doc.write(dxf_bytes_io)
+      dxf_bytes = dxf_bytes_io.getvalue()
 
       st.success(
           f"🎉 Successfully converted {point_count} 3D points and labels!"
