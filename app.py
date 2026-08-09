@@ -1,6 +1,8 @@
+import io
 import pandas as pd
 import streamlit as st
 import ezdxf
+from ezdxf.lldxf.serializer import dumps
 
 # Page configuration
 st.set_page_config(
@@ -157,8 +159,8 @@ if uploaded_file is not None:
           skipped_count += 1
           continue
 
-      # 💡 终极修复：直接使用 ezdxf 官方推荐的 string_export 方法生成规范的二进制字节，彻底解决换行符损坏问题
-      dxf_string = doc.dumps()
+      # 💡 Use correct ezdxf serializer to get raw string and encode to bytes
+      dxf_string = dumps(doc)
       dxf_bytes = dxf_string.encode("utf-8", errors="replace")
 
       st.success(
