@@ -78,14 +78,14 @@ if uploaded_file is not None:
           index=get_default_index(["id", "name", "point", "label"], columns),
       )
 
-    # CAD label display options (已新增 Show ID & Elevation / Height 选项)
+    # CAD label display options
     st.write("### ⚙️ CAD Text Label Options")
     label_display_mode = st.radio(
         "Choose what to display next to the point:",
         [
             "Show ID Only",
             "Show ID + X, Y, Z",
-            "Show ID & Elevation / Height",  # 👈 新增选项
+            "Show ID & Elevation / Height",
             "Show X Coordinate Only",
             "Show Y Coordinate Only",
             "Show Elevation / Height Only",
@@ -137,20 +137,20 @@ if uploaded_file is not None:
           # 3. 添加 3D 点
           msp.add_point((x_val, y_val, z_val))
 
-          # 4. 确定文字内容
+          # 4. 确定文字内容（高程前已加上 EL: 前缀）
           text_to_show = ""
           if label_display_mode == "Show ID Only":
             text_to_show = id_val
           elif label_display_mode == "Show ID + X, Y, Z":
             text_to_show = f"{id_val} (X:{x_val}, Y:{y_val}, Z:{z_val})"
           elif label_display_mode == "Show ID & Elevation / Height":
-            text_to_show = f"{id_val} (Z:{z_val})"  # 👈 新增选项对应的文本格式
+            text_to_show = f"{id_val} (EL:{z_val})"  # 👈 改为 EL:
           elif label_display_mode == "Show X Coordinate Only":
             text_to_show = str(x_val)
           elif label_display_mode == "Show Y Coordinate Only":
             text_to_show = str(y_val)
           elif label_display_mode == "Show Elevation / Height Only":
-            text_to_show = str(z_val)
+            text_to_show = f"EL:{z_val}"  # 👈 改为 EL:
           elif label_display_mode == "No Text (Draw Points Only)":
             text_to_show = ""
 
