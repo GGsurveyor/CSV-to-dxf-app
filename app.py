@@ -93,7 +93,7 @@ if uploaded_file is not None:
         ],
     )
 
-    # Advanced settings (新增：点种类与大小设置)
+    # Advanced settings
     with st.expander(
         "⚙️ Advanced Settings (Point Style, Size, Font & Offsets)"
     ):
@@ -107,7 +107,6 @@ if uploaded_file is not None:
       st.markdown("---")
       st.write("📍 **CAD Point Style Settings**")
 
-      # 点样式映射字典（对应 AutoCAD 的 PDMODE 系统变量值）
       point_style_options = {
           "Default Dot (.)": 0,
           "None (No Point Symbol)": 1,
@@ -124,7 +123,6 @@ if uploaded_file is not None:
       )
       pdmode_val = point_style_options[selected_style_name]
 
-      # PDSIZE 控制点的大小（正数表示绝对大小，负数表示屏幕百分比）
       pdsize_val = st.number_input(
           "Point Size (PDSIZE)",
           value=1.5,
@@ -140,7 +138,7 @@ if uploaded_file is not None:
       doc = ezdxf.new(dxfversion="R2010")
       msp = doc.modelspace()
 
-      # 设置 AutoCAD 全局点样式变量 (PDMODE 和 PDSIZE)
+      # 设置 AutoCAD 全局点样式变量
       doc.header["$PDMODE"] = pdmode_val
       doc.header["$PDSIZE"] = pdsize_val
 
@@ -159,8 +157,8 @@ if uploaded_file is not None:
           y_val = float(y_str)
           z_val = float(z_str)
 
-          # 2. 格式化数值（固定宽度确保小数点对齐）
-          format_str = f"{{:>10.{decimal_places}f}}"
+          # 2. 格式化数值
+          format_str = f"{{:.{decimal_places}f}}"
           x_formatted = format_str.format(x_val)
           y_formatted = format_str.format(y_val)
           z_formatted = format_str.format(z_val)
@@ -183,22 +181,22 @@ if uploaded_file is not None:
           # 4. 添加 3D 点
           msp.add_point((x_val, y_val, z_val))
 
-          # 5. 组装 MTEXT 内容（使用 `\~` 保持小数点垂直对齐）
+          # 5. 组装 MTEXT 内容：使用 CAD 专用的 \t（制表符）实现精准垂直对齐
           text_to_show = ""
           if label_display_mode == "Show ID Only":
             text_to_show = id_val
           elif label_display_mode == "Show ID + X, Y, Z":
             text_to_show = (
-                f"{id_val}\\PX:\\~\\~{x_formatted}\\PY:\\~\\~{y_formatted}\\PEL:\\~{z_formatted}"
+                f"{id_val}\\PX:\t{x_formatted}\\PY:\t{y_formatted}\\PEL:\t{z_formatted}"
             )
           elif label_display_mode == "Show ID & Elevation / Height":
-            text_to_show = f"{id_val}\\PEL:\\~{z_formatted}"
+            text_to_show = f"{id_val}\\PEL:\t{z_formatted}"
           elif label_display_mode == "Show X Coordinate Only":
-            text_to_show = f"X:\\~\\~{x_formatted}"
+            text_to_show = f"X:\t{x_formatted}"
           elif label_display_mode == "Show Y Coordinate Only":
-            text_to_show = f"Y:\\~\\~{y_formatted}"
+            text_to_show = f"Y:\t{y_formatted}"
           elif label_display_mode == "Show Elevation / Height Only":
-            text_to_show = f"EL:\\~{z_formatted}"
+            text_to_show = f"EL:\t{z_formatted}"
           elif label_display_mode == "No Text (Draw Points Only)":
             text_to_show = ""
 
