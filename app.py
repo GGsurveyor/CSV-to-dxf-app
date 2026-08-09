@@ -151,10 +151,10 @@ if uploaded_file is not None:
         except ValueError:
           continue  # Skip rows with invalid data format
 
-      # 💡 关键修复：改用 BytesIO 二进制流保存 DXF 文件，完美兼容 AutoCAD
-      dxf_bytes_io = io.BytesIO()
-      doc.write(dxf_bytes_io)
-      dxf_bytes = dxf_bytes_io.getvalue()
+      # 💡 完美解决二进制流报错的标准写法
+      dxf_stream = io.BytesIO()
+      doc.write(dxf_stream, fmt="asc")  # 强制输出为标准 ASCII DXF 二进制流
+      dxf_bytes = dxf_stream.getvalue()
 
       st.success(
           f"🎉 Successfully converted {point_count} 3D points and labels!"
