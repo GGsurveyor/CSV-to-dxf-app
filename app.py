@@ -100,24 +100,28 @@ if uploaded_file is not None:
 
     # Generation button
     if st.button("🚀 Generate DXF File"):
-      # 💡 改用 R2010 现代工业级标准，对复杂多点、大批量数据和特殊文本兼容性极强
       doc = ezdxf.new(dxfversion="R2010")
       msp = doc.modelspace()
 
       point_count = 0
       skipped_count = 0
+      bad_rows_info = []
 
-      for _, row in df.iterrows():
+      # 逐行遍历并严格隔离错误
+      for idx, row in df.iterrows():
         try:
-          # 1. 强力清洗坐标：过滤非数字
-          x_val = float(str(row[x_col]).replace(",", "").strip())
-          y_val = float(str(row[y_col]).replace(",", "").strip())
-          z_val = float(str(row[z_col]).replace(",", "").strip())
+          # 1. 坐标清洗与强转：如果包含非数字或者为空，直接报错进入 except
+          x_str = str(row[x_col]).replace(",", "").strip()
+          y_str = str(row[y_col]).replace(",", "").strip()
+          z_str = str(row[z_col]).replace(",", "").strip()
 
-          # 2. 极致安全清洗 ID：把所有换行、制表符、非法符号变成安全单行文本
+          x_val = float(x_str)
+          y_val = float(y_str)
+          z_val = float(z_str)
+
+          # 2. 清洗 ID 文本
           if id_col in row and pd.notna(row[id_col]):
             id_raw = str(row[id_col])
-            # 将任何潜在的回车、换行、Tab直接替换为空格，彻底杜绝 DXF 结构断行
             id_val = (
                 id_raw.replace("\r", " ")
                 .replace("\n", " ")
@@ -130,7 +134,7 @@ if uploaded_file is not None:
           else:
             id_val = f"Pt_{point_count+1}"
 
-          # 3. 在 CAD 中添加 3D 点
+          # 3. 添加 3D 点
           msp.add_point((x_val, y_val, z_val))
 
           # 4. 确定文字内容
@@ -148,7 +152,7 @@ if uploaded_file is not None:
           elif label_display_mode == "No Text (Draw Points Only)":
             text_to_show = ""
 
-          # 5. 添加文字标签（如果文本不为空）
+          # 5. 添加文字标签
           if text_to_show:
             msp.add_text(
                 text_to_show,
@@ -159,16 +163,18 @@ if uploaded_file is not None:
             )
 
           point_count += 1
-        except Exception:
+        except Exception as e:
           skipped_count += 1
+          # 记录具体哪一行（Excel/CSV里通常是 行号 + 2，因为有表头和 0 索引）
+          bad_rows_info.append(f"Row {idx + 2}: {e}")
           continue
 
-      # 自动审计并修复任何微小结构问题
+      # 审计并修复
       auditor = doc.audit()
       if len(auditor.errors) > 0:
         auditor.fix_errors()
 
-      # 使用临时文件安全保存
+      # 保存临时文件
       with tempfile.NamedTemporaryFile(delete=False, suffix=".dxf") as tmp_file:
         tmp_filename = tmp_file.name
 
@@ -179,10 +185,21 @@ if uploaded_file is not None:
 
       os.unlink(tmp_filename)
 
-      st.success(
-          f"🎉 Successfully converted {point_count} points! (Skipped"
-          f" {skipped_count} invalid rows)"
-      )
+      # 弹窗提示结果
+      if skipped_count > 0:
+        st.warning(
+            f"⚠️ Successfully converted {point_count} points, but skipped"
+            f" {skipped_count} invalid/corrupted rows."
+        )
+        with st.expander("🔍 Click to view skipped row details"):
+          st.write(
+              "The following rows had formatting or coordinate errors and were"
+              " safely bypassed:"
+          )
+          for bad in bad_rows_info[:20]:  # 最多展示前 20 个错误
+            st.text(bad)
+      else:
+        st.success(f"🎉 Successfully converted all {point_count} points!")
 
       # Download button
       st.download_button(
