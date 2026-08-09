@@ -93,11 +93,15 @@ if uploaded_file is not None:
         ],
     )
 
-    # Advanced text settings
-    with st.expander("⚙️ Advanced Settings (Font Size & Offsets)"):
+    # Advanced text settings (已增加小数位数选择)
+    with st.expander("⚙️ Advanced Settings (Font Size, Offsets & Decimals)"):
       text_height = st.number_input("Text Height", value=1.0, step=0.1)
       offset_x = st.number_input("Text X Offset", value=0.5, step=0.1)
       offset_y = st.number_input("Text Y Offset", value=0.5, step=0.1)
+      # 👈 新增：选择保留 3 位还是 4 位小数
+      decimal_places = st.selectbox(
+          "Decimal Places for Coordinates / EL", [3, 4], index=0
+      )
 
     # Generation button
     if st.button("🚀 Generate DXF File"):
@@ -119,7 +123,13 @@ if uploaded_file is not None:
           y_val = float(y_str)
           z_val = float(z_str)
 
-          # 2. 清洗 ID 文本
+          # 2. 根据用户设置的小数位数格式化数值字符串
+          format_str = f"{{:.{decimal_places}f}}"
+          x_formatted = format_str.format(x_val)
+          y_formatted = format_str.format(y_val)
+          z_formatted = format_str.format(z_val)
+
+          # 3. 清洗 ID 文本
           if id_col in row and pd.notna(row[id_col]):
             id_raw = str(row[id_col])
             id_val = (
@@ -134,28 +144,30 @@ if uploaded_file is not None:
           else:
             id_val = f"Pt_{point_count+1}"
 
-          # 3. 添加 3D 点
+          # 4. 添加 3D 点
           msp.add_point((x_val, y_val, z_val))
 
-          # 4. 确定文字内容
-          # 💡 在 AutoCAD MTEXT 中，使用 \P 代表强制换行（实现上下垂直排列）
+          # 5. 确定文字内容（应用格式化后的数值及垂直堆叠换行符 \P）
           text_to_show = ""
           if label_display_mode == "Show ID Only":
             text_to_show = id_val
           elif label_display_mode == "Show ID + X, Y, Z":
-            text_to_show = f"{id_val}\\PX: {x_val}\\PY: {y_val}\\PEL: {z_val}"
+            text_to_show = (
+                f"{id_val}\\PX: {x_formatted}\\PY:"
+                f" {y_formatted}\\PEL:{z_formatted}"
+            )
           elif label_display_mode == "Show ID & Elevation / Height":
-            text_to_show = f"{id_val}\\PEL: {z_val}"
+            text_to_show = f"{id_val}\\PEL:{z_formatted}"
           elif label_display_mode == "Show X Coordinate Only":
-            text_to_show = f"X: {x_val}"
+            text_to_show = f"X: {x_formatted}"
           elif label_display_mode == "Show Y Coordinate Only":
-            text_to_show = f"Y: {y_val}"
+            text_to_show = f"Y: {y_formatted}"
           elif label_display_mode == "Show Elevation / Height Only":
-            text_to_show = f"EL: {z_val}"
+            text_to_show = f"EL:{z_formatted}"
           elif label_display_mode == "No Text (Draw Points Only)":
             text_to_show = ""
 
-          # 5. 使用 add_mtext（多行文本），完美支持 \P 实现由上到下垂直堆叠
+          # 6. 添加多行文本 (MTEXT)
           if text_to_show:
             msp.add_mtext(
                 text_to_show,
