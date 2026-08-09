@@ -78,13 +78,14 @@ if uploaded_file is not None:
           index=get_default_index(["id", "name", "point", "label"], columns),
       )
 
-    # CAD label display options
+    # CAD label display options (已新增 Show ID & Elevation / Height 选项)
     st.write("### ⚙️ CAD Text Label Options")
     label_display_mode = st.radio(
         "Choose what to display next to the point:",
         [
             "Show ID Only",
             "Show ID + X, Y, Z",
+            "Show ID & Elevation / Height",  # 👈 新增选项
             "Show X Coordinate Only",
             "Show Y Coordinate Only",
             "Show Elevation / Height Only",
@@ -107,10 +108,9 @@ if uploaded_file is not None:
       skipped_count = 0
       bad_rows_info = []
 
-      # 逐行遍历并严格隔离错误
       for idx, row in df.iterrows():
         try:
-          # 1. 坐标清洗与强转：如果包含非数字或者为空，直接报错进入 except
+          # 1. 坐标清洗与转换
           x_str = str(row[x_col]).replace(",", "").strip()
           y_str = str(row[y_col]).replace(",", "").strip()
           z_str = str(row[z_col]).replace(",", "").strip()
@@ -143,6 +143,8 @@ if uploaded_file is not None:
             text_to_show = id_val
           elif label_display_mode == "Show ID + X, Y, Z":
             text_to_show = f"{id_val} (X:{x_val}, Y:{y_val}, Z:{z_val})"
+          elif label_display_mode == "Show ID & Elevation / Height":
+            text_to_show = f"{id_val} (Z:{z_val})"  # 👈 新增选项对应的文本格式
           elif label_display_mode == "Show X Coordinate Only":
             text_to_show = str(x_val)
           elif label_display_mode == "Show Y Coordinate Only":
@@ -165,7 +167,6 @@ if uploaded_file is not None:
           point_count += 1
         except Exception as e:
           skipped_count += 1
-          # 记录具体哪一行（Excel/CSV里通常是 行号 + 2，因为有表头和 0 索引）
           bad_rows_info.append(f"Row {idx + 2}: {e}")
           continue
 
@@ -185,18 +186,14 @@ if uploaded_file is not None:
 
       os.unlink(tmp_filename)
 
-      # 弹窗提示结果
       if skipped_count > 0:
         st.warning(
             f"⚠️ Successfully converted {point_count} points, but skipped"
             f" {skipped_count} invalid/corrupted rows."
         )
         with st.expander("🔍 Click to view skipped row details"):
-          st.write(
-              "The following rows had formatting or coordinate errors and were"
-              " safely bypassed:"
-          )
-          for bad in bad_rows_info[:20]:  # 最多展示前 20 个错误
+          st.write("The following rows had errors and were safely bypassed:")
+          for bad in bad_rows_info[:20]:
             st.text(bad)
       else:
         st.success(f"🎉 Successfully converted all {point_count} points!")
