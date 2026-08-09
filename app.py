@@ -2,7 +2,6 @@ import io
 import pandas as pd
 import streamlit as st
 import ezdxf
-from ezdxf.lldxf.serializer import dumps
 
 # Page configuration
 st.set_page_config(
@@ -159,9 +158,10 @@ if uploaded_file is not None:
           skipped_count += 1
           continue
 
-      # 💡 Use correct ezdxf serializer to get raw string and encode to bytes
-      dxf_string = dumps(doc)
-      dxf_bytes = dxf_string.encode("utf-8", errors="replace")
+      # 💡 Correct and standard way to export ezdxf to bytes using StringIO
+      stream = io.StringIO()
+      doc.write(stream)
+      dxf_bytes = stream.getvalue().encode("utf-8", errors="replace")
 
       st.success(
           f"🎉 Successfully converted {point_count} points! (Skipped"
