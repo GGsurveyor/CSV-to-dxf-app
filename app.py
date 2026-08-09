@@ -1,5 +1,3 @@
-import os
-import tempfile
 import pandas as pd
 import streamlit as st
 import ezdxf
@@ -109,12 +107,12 @@ if uploaded_file is not None:
 
       for _, row in df.iterrows():
         try:
-          # 1. Strict coordinate parsing (convert to float, remove commas/spaces if any)
+          # Strict coordinate parsing
           x_val = float(str(row[x_col]).replace(",", "").strip())
           y_val = float(str(row[y_col]).replace(",", "").strip())
           z_val = float(str(row[z_col]).replace(",", "").strip())
 
-          # 2. Clean ID string (remove dangerous characters for CAD)
+          # Clean ID string
           if id_col in row and pd.notna(row[id_col]):
             id_val = (
                 str(row[id_col])
@@ -126,10 +124,10 @@ if uploaded_file is not None:
           else:
             id_val = f"Pt_{point_count+1}"
 
-          # 3. Add 3D point in CAD
+          # Add 3D point in CAD
           msp.add_point((x_val, y_val, z_val))
 
-          # 4. Determine text content based on user choice
+          # Determine text content based on user choice
           text_to_show = ""
           if label_display_mode == "Show ID Only":
             text_to_show = id_val
@@ -144,7 +142,7 @@ if uploaded_file is not None:
           elif label_display_mode == "No Text (Draw Points Only)":
             text_to_show = ""
 
-          # 5. Add text label next to the point (safeguard against empty strings)
+          # Add text label next to the point
           if text_to_show:
             msp.add_text(
                 text_to_show,
@@ -157,18 +155,11 @@ if uploaded_file is not None:
           point_count += 1
         except Exception:
           skipped_count += 1
-          continue  # Skip invalid rows safely
+          continue
 
-      # Save to a temporary file
-      with tempfile.NamedTemporaryFile(delete=False, suffix=".dxf") as tmp_file:
-        tmp_filename = tmp_file.name
-
-      doc.saveas(tmp_filename)
-
-      with open(tmp_filename, "rb") as f:
-        dxf_bytes = f.read()
-
-      os.unlink(tmp_filename)
+      # 💡 终极修复：直接使用 ezdxf 官方推荐的 string_export 方法生成规范的二进制字节，彻底解决换行符损坏问题
+      dxf_string = doc.dumps()
+      dxf_bytes = dxf_string.encode("utf-8", errors="replace")
 
       st.success(
           f"🎉 Successfully converted {point_count} points! (Skipped"
