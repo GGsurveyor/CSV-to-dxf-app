@@ -122,10 +122,8 @@ if uploaded_file is not None:
           y_val = float(y_str)
           z_val = float(z_str)
 
-          # 2. 格式化数值：使用右对齐占位（例如总宽度根据整数位动态补齐空格，确保小数点完美对齐）
-          # 通常 X/Y 整数位为 6-7 位，EL 整数位为 3-4 位。为了让小数点在垂直方向对齐：
-          # 我们把它们分别格式化为固定宽度的字符串
-          format_str = f"{{:>10.{decimal_places}f}}"
+          # 2. 原始数值格式化
+          format_str = f"{{:.{decimal_places}f}}"
           x_formatted = format_str.format(x_val)
           y_formatted = format_str.format(y_val)
           z_formatted = format_str.format(z_val)
@@ -148,23 +146,24 @@ if uploaded_file is not None:
           # 4. 添加 3D 点
           msp.add_point((x_val, y_val, z_val))
 
-          # 5. 确定文字内容（通过在标签内使用固定字符宽度的右对齐格式，实现小数点纵向垂直对齐）
+          # 5. 组装 MTEXT 内容：
+          # 💡 核心改进：使用 AutoCAD 的强制对齐制表符格式 (\\t) 或右对齐段落格式
           text_to_show = ""
           if label_display_mode == "Show ID Only":
             text_to_show = id_val
           elif label_display_mode == "Show ID + X, Y, Z":
+            # 采用 MTEXT 内置的齐头对齐语法：标签固定左侧，数值独立靠右对齐
             text_to_show = (
-                f"{id_val}\\PX:  {x_formatted}\\PY:  {y_formatted}\\PEL:"
-                f" {z_formatted}"
+                f"{id_val}\\PX:\\~\\~{x_formatted}\\PY:\\~\\~{y_formatted}\\PEL:\\~{z_formatted}"
             )
           elif label_display_mode == "Show ID & Elevation / Height":
-            text_to_show = f"{id_val}\\PEL: {z_formatted}"
+            text_to_show = f"{id_val}\\PEL:\\~{z_formatted}"
           elif label_display_mode == "Show X Coordinate Only":
-            text_to_show = f"X:  {x_formatted}"
+            text_to_show = f"X:\\~\\~{x_formatted}"
           elif label_display_mode == "Show Y Coordinate Only":
-            text_to_show = f"Y:  {y_formatted}"
+            text_to_show = f"Y:\\~\\~{y_formatted}"
           elif label_display_mode == "Show Elevation / Height Only":
-            text_to_show = f"EL: {z_formatted}"
+            text_to_show = f"EL:\\~{z_formatted}"
           elif label_display_mode == "No Text (Draw Points Only)":
             text_to_show = ""
 
