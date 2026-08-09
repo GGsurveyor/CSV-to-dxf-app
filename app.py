@@ -36,7 +36,7 @@ if uploaded_file is not None:
     # Read the CSV file
     df = pd.read_csv(uploaded_file)
 
-    st.success("File上传成功！")
+    st.success("File uploaded successfully!")
     st.write("### Data Preview:", df.head())
 
     st.write("### Match Your Table Columns")
@@ -109,25 +109,28 @@ if uploaded_file is not None:
 
       for _, row in df.iterrows():
         try:
-          # 1. 强力清洗坐标：过滤非数字字符
+          # 1. 严格清洗坐标：转浮点数，去掉所有空格、逗号
           x_val = float(str(row[x_col]).replace(",", "").strip())
           y_val = float(str(row[y_col]).replace(",", "").strip())
           z_val = float(str(row[z_col]).replace(",", "").strip())
 
-          # 2. 强力清洗 ID：移除非法控制字符、双引号、换行，防止破坏 DXF 行结构
+          # 2. 强力清洗 ID：把所有可能引起 CAD 语法崩溃的特殊控制字符安全替换掉
           if id_col in row and pd.notna(row[id_col]):
-            id_val = (
-                str(row[id_col])
-                .replace("\n", " ")
-                .replace("\r", " ")
-                .replace('"', "")
-                .replace("\\", "/")
-                .strip()
-            )
+            id_raw = str(row[id_col])
+            # 过滤掉换行符、制表符、双引号、反斜杠等危险字符
+            id_val = "".join(
+                c
+                for c in id_raw
+                if c.isalnum()
+                or c in "._-+ /()[]#@:，、（）"
+                or ord(c) > 127
+            ).strip()
+            if not id_val:
+              id_val = f"Pt_{point_count+1}"
           else:
             id_val = f"Pt_{point_count+1}"
 
-          # 3. 添加 3D 点
+          # 3. 在 CAD 中添加 3D 点
           msp.add_point((x_val, y_val, z_val))
 
           # 4. 确定文字内容
@@ -145,7 +148,7 @@ if uploaded_file is not None:
           elif label_display_mode == "No Text (Draw Points Only)":
             text_to_show = ""
 
-          # 5. 添加文字标签
+          # 5. 添加文字标签（如果文本过长或包含非法格式则做安全保护）
           if text_to_show:
             msp.add_text(
                 text_to_show,
@@ -160,7 +163,12 @@ if uploaded_file is not None:
           skipped_count += 1
           continue
 
-      # 💡 核心大招：利用系统的安全临时文件保存，彻底阻断由于浏览器传输引起的文本流损坏
+      # 💡 核心大招：在保存前对整个 DXF 图纸进行审计与自动修复（Audit & Fix），扫除任何潜在结构硬伤
+      auditor = doc.audit()
+      if len(auditor.errors) > 0:
+        auditor.fix_errors()
+
+      # 利用临时文件以绝对二进制安全的方式保存
       with tempfile.NamedTemporaryFile(delete=False, suffix=".dxf") as tmp_file:
         tmp_filename = tmp_file.name
 
