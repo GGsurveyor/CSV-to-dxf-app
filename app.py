@@ -5,21 +5,27 @@ import streamlit as st
 import ezdxf
 
 # Page configuration
-st.set_page_config(page_title="CSV to DXF Converter", page_icon="📐", layout="centered")
+st.set_page_config(page_title="CSV to DXF Converter", page_icon="📐", layout="wide")
 
 st.title("📐 CSV to DXF 3D Coordinate Converter")
 
 # File uploader
 uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
 
-# CAD Color Mapping (ACI Index)
+# CAD Color Mapping
 CAD_COLORS = {
     "White (Default)": 7, "Red": 1, "Yellow": 2, "Green": 3, 
     "Cyan": 4, "Blue": 5, "Magenta": 6, "Gray": 8,
 }
 
 if uploaded_file is not None:
+    # 1. 读取并显示数据预览
     df = pd.read_csv(uploaded_file)
+    
+    # 将预览区放在最显眼的位置
+    with st.expander("👁️ View CSV Data (Use this to match columns correctly)", expanded=True):
+        st.dataframe(df.head(10)) # 显示前10行，清晰易读
+
     columns = list(df.columns)
 
     def get_default_index(keywords, cols):
@@ -29,6 +35,7 @@ if uploaded_file is not None:
                     return idx
         return 0
 
+    st.write("### 🛠️ Step 1: Map Columns")
     col1, col2 = st.columns(2)
     with col1:
         x_col = st.selectbox("Select X Coordinate", columns, index=get_default_index(["x"], columns))
@@ -37,8 +44,7 @@ if uploaded_file is not None:
         y_col = st.selectbox("Select Y Coordinate", columns, index=get_default_index(["y"], columns))
         id_col = st.selectbox("Select ID", columns, index=get_default_index(["id", "name", "point", "label"], columns))
 
-    # --- 新增：更加灵活的选择组合 ---
-    st.write("### ⚙️ Label Display Customization")
+    st.write("### 🛠️ Step 2: Display Settings")
     display_options = st.multiselect(
         "Select what to display in the label (order will be kept):",
         ["ID", "X Coordinate", "Y Coordinate", "Elevation (EL)"],
@@ -88,11 +94,13 @@ if uploaded_file is not None:
                             "color": CAD_COLORS[text_color]
                         },
                     )
-            except: continue
+            except Exception as e:
+                continue
 
         with tempfile.NamedTemporaryFile(delete=False, suffix=".dxf") as tmp:
             doc.saveas(tmp.name)
             with open(tmp.name, "rb") as f:
                 dxf_data = f.read()
         os.unlink(tmp.name)
+        st.success("✅ DXF generation complete!")
         st.download_button("⬇️ Download DXF", data=dxf_data, file_name="converted_output.dxf", mime="application/dxf")
