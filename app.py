@@ -117,3 +117,15 @@ if uploaded_file is not None:
         os.unlink(tmp.name)
         st.success("✅ DXF generation complete!")
         st.download_button("⬇️ Download DXF", data=dxf_data, file_name="converted_output.dxf", mime="application/dxf")
+
+# --- 新增：底部 AutoCAD 成型效果演示视频窗口 ---
+st.markdown("---")
+st.markdown("### 📺 AutoCAD Rendering & Formation Preview")
+st.markdown("以下为生成的 DXF 文件在 AutoCAD 中导入并成型的实际效果参考：")
+
+demo_video_path = "autocad_demo.mp4" # 如果本地没有该文件，可换成在线视频网址
+if os.path.exists(demo_video_path):
+    st.video(demo_video_path)
+else:
+    # 默认提供一个占位提示或公共演示视频链接（可按需替换）
+    st.info("💡 提示：在当前目录下放入名为 `autocad_demo.mp4` 的录屏文件即可在此处直接播放本地演示动画。")
