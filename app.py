@@ -49,10 +49,16 @@ if uploaded_file is not None:
         default=["ID", "X Coordinate", "Y Coordinate", "Elevation (EL)"]
     )
 
-    with st.expander("⚙️ Advanced Settings (Individual Heights, Offsets, Colors & Point Style)"):
+    with st.expander("⚙️ Advanced Settings (Individual Heights, Offsets, Colors & Layout)"):
         decimal_places = st.selectbox("Decimal Places", [3, 4], index=0)
         point_color = st.selectbox("Point Color", list(CAD_COLORS.keys()), index=0)
         
+        # 💡 新增：放样图纸空间 (Layout) 生成选项
+        st.markdown("---")
+        st.write("📄 **AutoCAD Layout (放样布局) 设置**")
+        create_layout = st.checkbox("Generate AutoCAD Layout (自动生成图纸布局/放样视口)", value=True)
+        layout_name = st.text_input("Layout Name (图纸布局名称)", value="放样施工图_Layout")
+
         st.markdown("---")
         st.write("🎛️ **Individual Field Configurations**")
         
@@ -102,7 +108,7 @@ if uploaded_file is not None:
                     msp.add_text(
                         text_content,
                         dxfattribs={
-                            "insert": (x_val + cfg["offset_x"], y_val + cfg["offset_y"] - line_spacing_offset, z_val),
+                            "insert": (x_val + cfg["offset_x"], y_val + cfg["offset_y'] - line_spacing_offset, z_val),
                             "height": cfg["height"],
                             "color": cfg["color"]
                         }
@@ -110,22 +116,26 @@ if uploaded_file is not None:
                     line_spacing_offset += cfg["height"] * 1.3
             except: continue
 
+        # 💡 核心实现：如果用户勾选了创建放样布局 (Layout)
+        if create_layout:
+            try:
+                # 创建一个新的 Layout 放样空间
+                layout = doc.layouts.new(layout_name)
+                # 为该 Layout 创建一个标准视口 (Viewport) 以便打印和放样观察
+                viewport = layout.add_viewport(
+                    center=(140, 100),  # 图纸中心点
+                    size=(240, 160),    # 视口大小
+                    view_center_point=(0, 0), # 观察模型空间的中心
+                    view_height=100     # 缩放比例高度
+                )
+            except Exception as e:
+                pass # 防止布局创建失败影响主模型导出
+
         with tempfile.NamedTemporaryFile(delete=False, suffix=".dxf") as tmp:
             doc.saveas(tmp.name)
             with open(tmp.name, "rb") as f:
                 dxf_data = f.read()
         os.unlink(tmp.name)
-        st.success("✅ DXF generation complete!")
+        
+        st.success("✅ DXF generation complete! (已包含模型与放样布局)")
         st.download_button("⬇️ Download DXF", data=dxf_data, file_name="converted_output.dxf", mime="application/dxf")
-
-# --- 新增：底部 AutoCAD 成型效果演示视频窗口 ---
-st.markdown("---")
-st.markdown("### 📺 AutoCAD Rendering & Formation Preview")
-st.markdown("以下为生成的 DXF 文件在 AutoCAD 中导入并成型的实际效果参考：")
-
-demo_video_path = "autocad_demo.mp4" # 如果本地没有该文件，可换成在线视频网址
-if os.path.exists(demo_video_path):
-    st.video(demo_video_path)
-else:
-    # 默认提供一个占位提示或公共演示视频链接（可按需替换）
-    st.info("💡 提示：在当前目录下放入名为 `autocad_demo.mp4` 的录屏文件即可在此处直接播放本地演示动画。")
