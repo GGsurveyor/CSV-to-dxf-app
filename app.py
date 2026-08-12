@@ -19,12 +19,11 @@ CAD_COLORS = {
 }
 
 if uploaded_file is not None:
-    # 1. 读取并显示数据预览
+    # 读取并显示数据预览
     df = pd.read_csv(uploaded_file)
     
-    # 将预览区放在最显眼的位置
     with st.expander("👁️ View CSV Data (Use this to match columns correctly)", expanded=True):
-        st.dataframe(df.head(10)) # 显示前10行，清晰易读
+        st.dataframe(df.head(10))
 
     columns = list(df.columns)
 
@@ -51,12 +50,19 @@ if uploaded_file is not None:
         default=["ID", "Elevation (EL)"]
     )
 
-    with st.expander("⚙️ Advanced Settings (Color, Size, Style)"):
+    with st.expander("⚙️ Advanced Settings (Point Style, Size & Individual Text Colors)"):
         text_height = st.number_input("Text Height", value=1.0, step=0.1)
         decimal_places = st.selectbox("Decimal Places", [3, 4], index=0)
         point_color = st.selectbox("Point Color", list(CAD_COLORS.keys()), index=0)
-        text_color = st.selectbox("Text Color", list(CAD_COLORS.keys()), index=0)
         
+        st.markdown("---")
+        st.write("🎨 **Individual Text Colors (ID, X, Y, EL)**")
+        id_color = st.selectbox("ID Text Color", list(CAD_COLORS.keys()), index=0)
+        x_text_color = st.selectbox("X Coordinate Text Color", list(CAD_COLORS.keys()), index=0)
+        y_text_color = st.selectbox("Y Coordinate Text Color", list(CAD_COLORS.keys()), index=0)
+        el_text_color = st.selectbox("Elevation (EL) Text Color", list(CAD_COLORS.keys()), index=2) # 默认给个黄色醒目
+        
+        st.markdown("---")
         point_style_options = {"Dot (.)": 0, "Plus (+)": 2, "X Shape": 3, "Circle (○)": 32, "Square (□)": 64}
         pdmode_val = st.selectbox("Point Symbol Type", list(point_style_options.keys()), index=1)
         pdsize_val = st.number_input("Point Size", value=1.5, step=0.2)
@@ -76,14 +82,21 @@ if uploaded_file is not None:
                 # 绘制点
                 msp.add_point((x_val, y_val, z_val), dxfattribs={"color": CAD_COLORS[point_color]})
 
-                # 动态组装文本
+                # 💡 核心修改：在 MTEXT 中使用颜色控制代码（如 \c颜色索引;）为每一行单独指定颜色
                 lines = []
-                if "ID" in display_options: lines.append(f"{id_val}")
-                if "X Coordinate" in display_options: lines.append(f"X:\t{fmt.format(x_val)}")
-                if "Y Coordinate" in display_options: lines.append(f"Y:\t{fmt.format(y_val)}")
-                if "Elevation (EL)" in display_options: lines.append(f"EL:\t{fmt.format(z_val)}")
+                if "ID" in display_options:
+                    c_idx = CAD_COLORS[id_color]
+                    lines.append(f"\\c{c_idx};{id_val}")
+                if "X Coordinate" in display_options:
+                    c_idx = CAD_COLORS[x_text_color]
+                    lines.append(f"\\c{c_idx};X:\t{fmt.format(x_val)}")
+                if "Y Coordinate" in display_options:
+                    c_idx = CAD_COLORS[y_text_color]
+                    lines.append(f"\\c{c_idx};Y:\t{fmt.format(y_val)}")
+                if "Elevation (EL)" in display_options:
+                    c_idx = CAD_COLORS[el_text_color]
+                    lines.append(f"\\c{c_idx};EL:\t{fmt.format(z_val)}")
 
-                # 使用 \P 拼接
                 if lines:
                     text_str = "\\P".join(lines)
                     msp.add_mtext(
@@ -91,7 +104,8 @@ if uploaded_file is not None:
                         dxfattribs={
                             "insert": (x_val + 0.5, y_val + 0.5, z_val),
                             "char_height": text_height,
-                            "color": CAD_COLORS[text_color]
+                            # 默认图层颜色，内部段落会用 \c 覆盖
+                            "color": 7 
                         },
                     )
             except Exception as e:
