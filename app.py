@@ -10,40 +10,28 @@ st.set_page_config(
 )
 
 st.title("📐 CSV to DXF 3D Coordinate Converter")
-st.markdown(
-    "Upload a CSV file containing **ID, X, Y, and Z** data to instantly convert"
-    " it into a CAD-ready DXF file."
-)
+st.markdown("Convert CSV coordinates to CAD-ready DXF with custom styling.")
 
-# Sample format expander
-with st.expander("ℹ️ Click here to view the expected CSV format"):
-  st.markdown("""
-        Your CSV file must include these columns (headers can have any names as you can match them manually later):
-        
-        **Example CSV Structure:**
-        ```csv
-        ID,X,Y,Z
-        P1,500.25,1000.50,15.20
-        P2,501.10,1002.30,15.85
-        ```
-    """)
+# CAD Color Mapping (ACI Index)
+CAD_COLORS = {
+    "White (Default)": 7,
+    "Red": 1,
+    "Yellow": 2,
+    "Green": 3,
+    "Cyan": 4,
+    "Blue": 5,
+    "Magenta": 6,
+    "Gray": 8,
+}
 
 # File uploader widget
 uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
 
 if uploaded_file is not None:
   try:
-    # Read the CSV file
     df = pd.read_csv(uploaded_file)
-
-    st.success("File uploaded successfully!")
-    st.write("### Data Preview:", df.head())
-
-    st.write("### Match Your Table Columns")
     columns = list(df.columns)
 
-
-    # Helper function to auto-guess column indices
     def get_default_index(keywords, cols):
       for kw in keywords:
         for idx, col in enumerate(cols):
@@ -51,206 +39,79 @@ if uploaded_file is not None:
             return idx
       return 0
 
-
-    # Two-column layout
     col1, col2 = st.columns(2)
     with col1:
-      x_col = st.selectbox(
-          "Select X Coordinate (Easting / Longitude)",
-          columns,
-          index=get_default_index(["x"], columns),
-      )
-      z_col = st.selectbox(
-          "Select Z Coordinate (Elevation / Height)",
-          columns,
-          index=get_default_index(["z", "elev", "height"], columns),
-      )
-
+      x_col = st.selectbox("Select X Coordinate", columns, index=get_default_index(["x"], columns))
+      z_col = st.selectbox("Select Z Coordinate", columns, index=get_default_index(["z", "elev", "height"], columns))
     with col2:
-      y_col = st.selectbox(
-          "Select Y Coordinate (Northing / Latitude)",
-          columns,
-          index=get_default_index(["y"], columns),
-      )
-      id_col = st.selectbox(
-          "Select ID (Point Name / Number)",
-          columns,
-          index=get_default_index(["id", "name", "point", "label"], columns),
-      )
+      y_col = st.selectbox("Select Y Coordinate", columns, index=get_default_index(["y"], columns))
+      id_col = st.selectbox("Select ID", columns, index=get_default_index(["id", "name", "point", "label"], columns))
 
-    # CAD label display options
-    st.write("### ⚙️ CAD Text Label Options")
     label_display_mode = st.radio(
-        "Choose what to display next to the point:",
-        [
-            "Show ID Only",
-            "Show ID + X, Y, Z",
-            "Show ID & Elevation / Height",
-            "Show X Coordinate Only",
-            "Show Y Coordinate Only",
-            "Show Elevation / Height Only",
-            "No Text (Draw Points Only)",
-        ],
+        "Choose what to display:",
+        ["Show ID Only", "Show ID + X, Y, Z", "Show ID & Elevation", "No Text"],
     )
 
-    # Advanced settings
-    with st.expander(
-        "⚙️ Advanced Settings (Point Style, Size, Font & Offsets)"
-    ):
+    # Advanced Settings
+    with st.expander("⚙️ Advanced Settings (Point Style, Size, Color & Decimals)"):
       text_height = st.number_input("Text Height", value=1.0, step=0.1)
       offset_x = st.number_input("Text X Offset", value=0.5, step=0.1)
       offset_y = st.number_input("Text Y Offset", value=0.5, step=0.1)
-      decimal_places = st.selectbox(
-          "Decimal Places for Coordinates / EL", [3, 4], index=0
-      )
-
+      decimal_places = st.selectbox("Decimal Places", [3, 4], index=0)
+      
       st.markdown("---")
-      st.write("📍 **CAD Point Style Settings**")
+      # Color Selection
+      point_color_name = st.selectbox("Point Color", list(CAD_COLORS.keys()), index=0)
+      text_color_name = st.selectbox("Text Label Color", list(CAD_COLORS.keys()), index=0)
+      
+      st.markdown("---")
+      point_style_options = {"Dot (.)": 0, "Plus (+)": 2, "X Shape": 3, "Circle (○)": 32, "Square (□)": 64}
+      pdmode_val = st.selectbox("Point Symbol Type", list(point_style_options.keys()), index=1)
+      pdsize_val = st.number_input("Point Size (PDSIZE)", value=1.5, step=0.2)
 
-      point_style_options = {
-          "Default Dot (.)": 0,
-          "None (No Point Symbol)": 1,
-          "Plus (+)": 2,
-          "X Shape (X)": 3,
-          "Vertical Tick (|)": 4,
-          "Circle (○)": 32,
-          "Square (□)": 64,
-          "Circle & Cross (◎)": 34,
-      }
-
-      selected_style_name = st.selectbox(
-          "Point Symbol Type", list(point_style_options.keys()), index=2
-      )
-      pdmode_val = point_style_options[selected_style_name]
-
-      pdsize_val = st.number_input(
-          "Point Size (PDSIZE)",
-          value=1.5,
-          step=0.2,
-          help=(
-              "Set point display size. Positive values are absolute units in"
-              " drawing."
-          ),
-      )
-
-    # Generation button
     if st.button("🚀 Generate DXF File"):
       doc = ezdxf.new(dxfversion="R2010")
       msp = doc.modelspace()
 
-      # 设置 AutoCAD 全局点样式变量
-      doc.header["$PDMODE"] = pdmode_val
+      doc.header["$PDMODE"] = point_style_options[pdmode_val]
       doc.header["$PDSIZE"] = pdsize_val
-
-      point_count = 0
-      skipped_count = 0
-      bad_rows_info = []
 
       for idx, row in df.iterrows():
         try:
-          # 1. 坐标清洗与转换
-          x_str = str(row[x_col]).replace(",", "").strip()
-          y_str = str(row[y_col]).replace(",", "").strip()
-          z_str = str(row[z_col]).replace(",", "").strip()
+          x_val, y_val, z_val = float(row[x_col]), float(row[y_col]), float(row[z_col])
+          
+          fmt = f"{{:.{decimal_places}f}}"
+          id_val = str(row.get(id_col, f"Pt_{idx+1}"))
 
-          x_val = float(x_str)
-          y_val = float(y_str)
-          z_val = float(z_str)
+          # 添加点 (应用选定颜色)
+          msp.add_point((x_val, y_val, z_val), dxfattribs={"color": CAD_COLORS[point_color_name]})
 
-          # 2. 格式化数值
-          format_str = f"{{:.{decimal_places}f}}"
-          x_formatted = format_str.format(x_val)
-          y_formatted = format_str.format(y_val)
-          z_formatted = format_str.format(z_val)
-
-          # 3. 清洗 ID 文本
-          if id_col in row and pd.notna(row[id_col]):
-            id_raw = str(row[id_col])
-            id_val = (
-                id_raw.replace("\r", " ")
-                .replace("\n", " ")
-                .replace("\t", " ")
-                .replace('"', "")
-                .strip()
-            )
-            if not id_val:
-              id_val = f"Pt_{point_count+1}"
-          else:
-            id_val = f"Pt_{point_count+1}"
-
-          # 4. 添加 3D 点
-          msp.add_point((x_val, y_val, z_val))
-
-          # 5. 组装 MTEXT 内容：使用 CAD 专用的 \t（制表符）实现精准垂直对齐
+          # 组装文本
           text_to_show = ""
           if label_display_mode == "Show ID Only":
             text_to_show = id_val
           elif label_display_mode == "Show ID + X, Y, Z":
-            text_to_show = (
-                f"{id_val}\\PX:\t{x_formatted}\\PY:\t{y_formatted}\\PEL:\t{z_formatted}"
-            )
-          elif label_display_mode == "Show ID & Elevation / Height":
-            text_to_show = f"{id_val}\\PEL:\t{z_formatted}"
-          elif label_display_mode == "Show X Coordinate Only":
-            text_to_show = f"X:\t{x_formatted}"
-          elif label_display_mode == "Show Y Coordinate Only":
-            text_to_show = f"Y:\t{y_formatted}"
-          elif label_display_mode == "Show Elevation / Height Only":
-            text_to_show = f"EL:\t{z_formatted}"
-          elif label_display_mode == "No Text (Draw Points Only)":
-            text_to_show = ""
+            text_to_show = f"{id_val}\\PX:\t{fmt.format(x_val)}\\PY:\t{fmt.format(y_val)}\\PEL:\t{fmt.format(z_val)}"
+          elif label_display_mode == "Show ID & Elevation":
+            text_to_show = f"{id_val}\\PEL:\t{fmt.format(z_val)}"
 
-          # 6. 添加多行文本 (MTEXT)
           if text_to_show:
             msp.add_mtext(
                 text_to_show,
                 dxfattribs={
                     "insert": (x_val + offset_x, y_val + offset_y, z_val),
                     "char_height": text_height,
+                    "color": CAD_COLORS[text_color_name]
                 },
             )
+        except: continue
 
-          point_count += 1
-        except Exception as e:
-          skipped_count += 1
-          bad_rows_info.append(f"Row {idx + 2}: {e}")
-          continue
+      with tempfile.NamedTemporaryFile(delete=False, suffix=".dxf") as tmp:
+        doc.saveas(tmp.name)
+        with open(tmp.name, "rb") as f:
+          dxf_data = f.read()
+      os.unlink(tmp.name)
 
-      # 审计并修复
-      auditor = doc.audit()
-      if len(auditor.errors) > 0:
-        auditor.fix_errors()
-
-      # 保存临时文件
-      with tempfile.NamedTemporaryFile(delete=False, suffix=".dxf") as tmp_file:
-        tmp_filename = tmp_file.name
-
-      doc.saveas(tmp_filename)
-
-      with open(tmp_filename, "rb") as f:
-        dxf_bytes = f.read()
-
-      os.unlink(tmp_filename)
-
-      if skipped_count > 0:
-        st.warning(
-            f"⚠️ Successfully converted {point_count} points, but skipped"
-            f" {skipped_count} invalid/corrupted rows."
-        )
-        with st.expander("🔍 Click to view skipped row details"):
-          st.write("The following rows had errors and were safely bypassed:")
-          for bad in bad_rows_info[:20]:
-            st.text(bad)
-      else:
-        st.success(f"🎉 Successfully converted all {point_count} points!")
-
-      # Download button
-      st.download_button(
-          label="⬇️ Click to Download DXF File",
-          data=dxf_bytes,
-          file_name="converted_output.dxf",
-          mime="application/dxf",
-      )
-
+      st.download_button("⬇️ Download DXF", data=dxf_data, file_name="output.dxf", mime="application/dxf")
   except Exception as e:
-    st.error(f"An error occurred while processing the file: {e}")
+    st.error(f"Error: {e}")
