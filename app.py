@@ -5,9 +5,9 @@ import ezdxf
 import matplotlib.pyplot as plt
 
 # Page configuration
-st.set_page_config(page_title="CSV to DXF Converter & Layout Preview - Made by Ng Yit Fung", page_icon="📐", layout="wide")
+st.set_page_config(page_title="CSV to DXF Converter & Layout Preview", page_icon="📐", layout="wide")
 
-st.title("📐 CSV to DXF 3D Coordinate Converter & Layout Preview")
+st.title("📐 CSV to DXF 3D Coordinate Converter & Layout Preview - Made by Ng Yit Fung")
 st.markdown("Convert CSV data into CAD-ready DXF format and preview the layout live on the web.")
 
 # File uploader
